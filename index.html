@@ -96,7 +96,7 @@ h2{font-size:18px;font-weight:500;margin-bottom:1rem}
   <div id="btn-judge" style="display:none">
     <div class="btn-row">
       <button class="btn success" onclick="judge(true)">いいです○</button>
-      <button class="btn danger" onclick="judge(false)">もういちど ✗</button>
+      <button class="btn danger" onclick="judge(false)">よくないです✗</button>
     </div>
   </div>
 </div>
@@ -229,7 +229,7 @@ function showResult(){
   const ok = results.filter(r=>r.ok).length, ng = results.length - ok;
   document.getElementById('result-stats').innerHTML = `
     <div class="stat"><div class="stat-label">いいです○</div><div class="stat-num ok">${ok}</div></div>
-    <div class="stat"><div class="stat-label">もういちど ✗</div><div class="stat-num ng">${ng}</div></div>
+    <div class="stat"><div class="stat-label">よくないです✗</div><div class="stat-num ng">${ng}</div></div>
     <div class="stat"><div class="stat-label">スコア</div><div class="stat-num">${Math.round(ok/results.length*100)}%</div></div>`;
   document.getElementById('result-list').innerHTML = results.map(r=>`
     <div class="result-item">
