@@ -61,9 +61,24 @@ h2{font-size:18px;font-weight:500;margin-bottom:1rem}
 
 <div id="s-sheet" class="screen active">
   <h1>Verb Flashcards</h1>
-  <div style="margin:1rem 0 1.5rem">
-    <label style="font-size:13px;color:#666;display:block;margin-bottom:6px">いまなんかですか？ (第<span id="lesson-num">--</span>課まで)</label>
-    <input type="range" id="lesson-slider" style="width:100%;accent-color:#185FA5" oninput="updateLesson(this.value)">
+  <div style="margin:1rem 0 1rem">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+      <span style="font-size:13px;color:#666;white-space:nowrap;width:2.5em">から</span>
+      <input type="range" id="lesson-min-slider" style="flex:1;accent-color:#185FA5" oninput="updateLessonRange()">
+      <span style="font-size:13px;font-weight:500;white-space:nowrap;min-width:4em;text-align:right">第<span id="lesson-min-num">--</span>課</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:14px">
+      <span style="font-size:13px;color:#666;white-space:nowrap;width:2.5em">まで</span>
+      <input type="range" id="lesson-max-slider" style="flex:1;accent-color:#185FA5" oninput="updateLessonRange()">
+      <span style="font-size:13px;font-weight:500;white-space:nowrap;min-width:4em;text-align:right">第<span id="lesson-max-num">--</span>課</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <span style="font-size:13px;color:#666">出題数</span>
+      <button onclick="changeCount(-5)" class="btn" style="width:36px;padding:4px 0;text-align:center;margin:0;flex-shrink:0">－</button>
+      <span id="count-num" style="font-size:16px;font-weight:500;min-width:28px;text-align:center">15</span>
+      <span style="font-size:13px;color:#666">問</span>
+      <button onclick="changeCount(5)" class="btn" style="width:36px;padding:4px 0;text-align:center;margin:0;flex-shrink:0">＋</button>
+    </div>
   </div>
   <div id="sheet-list"></div>
 </div>
@@ -77,6 +92,7 @@ h2{font-size:18px;font-weight:500;margin-bottom:1rem}
 </div>
 
 <div id="s-study" class="screen">
+  <div style="text-align:right;margin-bottom:6px"><button class="btn" onclick="goTo('s-sheet')" style="display:inline-block;width:auto;padding:4px 14px;color:#888;font-size:13px">やめる</button></div>
   <div class="progress-wrap"><div class="progress-bar" id="prog-bar" style="width:0%"></div></div>
   <p class="progress-text" id="prog-text"></p>
   <div class="card-wrap">
@@ -118,53 +134,71 @@ const LESSONS = [4, 5, 6, 7, 9, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 
 const FORM_OPTS = ['て形','辞書形','ない形','た形','意向形','命令形','条件形','可能動詞','受身形','使役形','尊敬動詞'];
 const FORM_LABEL = {'て形':'て形 (te-form)','辞書形':'辞書形 (dictionary form)','ない形':'ない形 (nai-form)','た形':'た形 (ta-form)','意向形':'意向形 (volitional)','命令形':'命令形 (imperative)','条件形':'条件形 (conditional)','可能動詞':'可能動詞 (potential)','受身形':'受身形 (passive)','使役形':'使役形 (causative)','尊敬動詞':'尊敬動詞 (honorific)'};
 const PER_GROUP = 5;
-let selectedLesson=null,selectedGroup=null,selectedWords=[],queue=[],current=0,results=[];
+let selectedMinLesson=null,selectedMaxLesson=null,selectedGroup=null,selectedWords=[],queue=[],current=0,results=[],selectedCount=15;
 
 function goTo(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');}
 
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
 
 function buildLessonUI(){
-  const slider = document.getElementById('lesson-slider');
-  slider.min = 0;
-  slider.max = LESSONS.length - 1;
-  slider.value = LESSONS.length - 1;
-  updateLesson(LESSONS.length - 1);
+  const minSlider = document.getElementById('lesson-min-slider');
+  const maxSlider = document.getElementById('lesson-max-slider');
+  minSlider.min = 0; minSlider.max = LESSONS.length - 1; minSlider.value = 0;
+  maxSlider.min = 0; maxSlider.max = LESSONS.length - 1; maxSlider.value = LESSONS.length - 1;
+  updateLessonRange();
 }
 
-function updateLesson(idx){
-  selectedLesson = LESSONS[parseInt(idx)];
-  document.getElementById('lesson-num').textContent = selectedLesson;
+function updateLessonRange(){
+  let minIdx = parseInt(document.getElementById('lesson-min-slider').value);
+  let maxIdx = parseInt(document.getElementById('lesson-max-slider').value);
+  if(minIdx > maxIdx){ [minIdx, maxIdx] = [maxIdx, minIdx]; }
+  selectedMinLesson = LESSONS[minIdx];
+  selectedMaxLesson = LESSONS[maxIdx];
+  document.getElementById('lesson-min-num').textContent = selectedMinLesson;
+  document.getElementById('lesson-max-num').textContent = selectedMaxLesson;
   const el = document.getElementById('sheet-list');
   el.innerHTML = '';
-  const filtered = WORDS.filter(w => w.lesson <= selectedLesson);
+  const filtered = WORDS.filter(w => w.lesson >= selectedMinLesson && w.lesson <= selectedMaxLesson);
   const groups = ['Ⅰ','Ⅱ','Ⅲ'];
   groups.forEach(g => {
-    const count = filtered.filter(w => w.group === g).length;
-    if(!count) return;
+    const cnt = filtered.filter(w => w.group === g).length;
+    if(!cnt) return;
     const btn = document.createElement('button');
     btn.className = 'btn';
-    btn.innerHTML = `<strong>グループ ${g}</strong><span style="float:right;color:#888;font-size:13px">${count}語</span>`;
+    btn.innerHTML = `<strong>グループ ${g}</strong><span style="float:right;color:#888;font-size:13px">${cnt}語</span>`;
     btn.onclick = () => selectGroup(g);
     el.appendChild(btn);
   });
   const allBtn = document.createElement('button');
   allBtn.className = 'btn primary';
   allBtn.style.marginTop = '8px';
-  allBtn.innerHTML = 'ぜんぶ (Ⅰ Ⅱ Ⅲ) から 15 問';
+  allBtn.id = 'all-btn';
+  updateAllBtnLabel(allBtn);
   allBtn.onclick = () => selectGroup(null);
   el.appendChild(allBtn);
 }
 
+function updateAllBtnLabel(btn){
+  const perG = Math.max(1, Math.floor(selectedCount / 3));
+  (btn || document.getElementById('all-btn')).innerHTML = `ぜんぶ (Ⅰ Ⅱ Ⅲ) から ${perG * 3} 問`;
+}
+
+function changeCount(delta){
+  selectedCount = Math.max(3, Math.min(60, selectedCount + delta));
+  document.getElementById('count-num').textContent = selectedCount;
+  updateAllBtnLabel();
+}
+
 function selectGroup(group){
   selectedGroup = group;
-  const filtered = WORDS.filter(w => w.lesson <= selectedLesson);
+  const filtered = WORDS.filter(w => w.lesson >= selectedMinLesson && w.lesson <= selectedMaxLesson);
   if(group === null){
+    const perG = Math.max(1, Math.floor(selectedCount / 3));
     selectedWords = ['Ⅰ','Ⅱ','Ⅲ'].flatMap(g =>
-      shuffle(filtered.filter(w => w.group === g)).slice(0, PER_GROUP)
+      shuffle(filtered.filter(w => w.group === g)).slice(0, perG)
     );
   } else {
-    selectedWords = shuffle(filtered.filter(w => w.group === group)).slice(0, 15);
+    selectedWords = shuffle(filtered.filter(w => w.group === group)).slice(0, selectedCount);
   }
   const avail = new Set();
   selectedWords.forEach(w => FORM_OPTS.forEach(f => { if(w.forms[f]) avail.add(f); }));
